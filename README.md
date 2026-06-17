@@ -219,6 +219,14 @@ Tested on: GitHub Pages · GoDaddy · Netlify · Vercel · local `file://`
 
 ---
 
-## License
+## Author
 
-MIT — free to use, modify, and distribute for any purpose, including clinical and commercial use. Attribution appreciated but not required.
+Gabriella Binde
+
+Created: June 2026
+
+## About
+
+Single-file questionnaire template developed for clinical, educational, and research applications.
+
+This project was created as part of my programming and digital assessment tool development portfolio.
