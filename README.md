@@ -1,6 +1,6 @@
 # Single-File Questionnaire Template
 
-A zero-dependency, single-HTML-file framework for delivering self-report questionnaires in clinical or research settings. Drop it on any static host and it works — no server, no build step, no package manager.
+A zero-dependency, single-HTML-file framework for delivering self-report questionnaires in clinical or research settings. Drop it on any static host and it works: no server, no build step, no package manager.
 
 Built for psychologists, researchers, and developers who need to deploy a validated instrument quickly without a backend.
 
@@ -11,7 +11,7 @@ Built for psychologists, researchers, and developers who need to deploy a valida
 ## Features
 
 - **One file, no dependencies** — a single `.html` file you can host anywhere (GitHub Pages, GoDaddy, Netlify, Vercel, or a local file system)
-- **One question per page** — clean, focused UX with a progress bar and back/next navigation
+- **One question per page** - clean, focused UX with a progress bar and back/next navigation
 - **Auto-save** — progress is saved to `localStorage` so participants can recover from accidental tab closes
 - **Direct and reverse scoring** — declare reverse-scored item IDs in a single array; the formula is applied automatically
 - **Subscale support** — group items into named subscales; scores are computed and displayed automatically
