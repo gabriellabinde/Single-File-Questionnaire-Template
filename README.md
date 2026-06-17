@@ -1,6 +1,6 @@
 # Single-File Questionnaire Template
 
-A zero-dependency, single-HTML-file framework for delivering self-report questionnaires in clinical or research settings. Drop it on any static host and it works: no server, no build step, no package manager.
+A zero-dependency, single-HTML-file framework for delivering self-report questionnaires in clinical or research settings. Drop it on any static host and it works - no server, no build step, no package manager.
 
 Built for psychologists, researchers, and developers who need to deploy a validated instrument quickly without a backend.
 
