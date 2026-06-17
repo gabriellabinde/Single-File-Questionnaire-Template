@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!--
+  ╔══════════════════════════════════════════════════════════════════════════════╗
+  ║         SINGLE-FILE QUESTIONNAIRE TEMPLATE — instrument-template.html        ║
+  ║                                                                              ║
+  ║         Developed by Gabriella Binde                                         ║
+  ║         Version 1.0 — June 2026                                              ║
+  ╚══════════════════════════════════════════════════════════════════════════════╝
+
+  OVERVIEW
+  ────────
+  A zero-dependency, single-HTML-file framework for delivering self-report
+  questionnaires in a clinical or research context. It runs entirely in the
+  browser — no server, no build step, no package manager. Upload it to any
+  static host (GitHub Pages, GoDaddy, Netlify, etc.) and it works.
+
+  The template is designed to be reused across instruments. Adapting it for
+  a new questionnaire requires editing only three JavaScript objects:
+
+    • QUIZ_CONFIG      — instrument name, description, and timing
+    • QUESTIONS        — the list of items shown to participants
+    • SCORE_RULES      — response scale, reverse items, score bands, subscales
+
+  Everything else — layout, styles, navigation, state management and
+  (optionally) email delivery - is generic infrastructure.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  QUICK-START: ADAPTING FOR A NEW INSTRUMENT
+  ──────────────────────────────────────────────────────────────────────────────
+  1. Open this file in any text editor.
+  2. Find the <script> block (near the bottom of the file).
+  3. Edit QUIZ_CONFIG   →  change instrument name, description, estimated time.
+  4. Edit QUESTIONS     →  replace the 7 example items with your own.
+                           Each item needs a unique numeric `id` and a `text`.
+  5. Edit SCORE_RULES   →  set your response scale (answerOptions), list any
+                           reverse-scored item ids (reverseScoredItems), define
+                           interpretation thresholds (bands), and optionally
+                           define subscales (subscales: []).
+  6. Edit EMAILJS_CONFIG →  add your EmailJS credentials, OR leave the
+                            placeholder values to disable email delivery.
+  7. Save and deploy the single file. No build step needed.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  COMMON CUSTOMISATIONS
+  ──────────────────────────────────────────────────────────────────────────────
+
+  A. CHANGE THE RESPONSE SCALE
+     Edit SCORE_RULES.answerOptions[]. Common examples:
+       • 4-point Likert: Never / Rarely / Often / Always       (values 0–3)
+       • 5-point Likert: Strongly disagree … Strongly agree    (values 0–4)
+       • 3-point:        Not at all / Somewhat / Very much     (values 0–2)
+       • Binary:         No / Yes                              (values 0–1)
+     After changing options, also update SCORE_RULES.maxItemValue to match
+     the highest value in your answerOptions array.
+
+  B. ADD OR REMOVE REVERSE-SCORED ITEMS
+     List the `id` values of reverse items in SCORE_RULES.reverseScoredItems.
+     The formula applied automatically is:  scored = maxItemValue − raw
+     To disable reverse scoring entirely, set:  reverseScoredItems: []
+
+  C. CHANGE THE INTERPRETATION BANDS
+     Edit SCORE_RULES.bands[]. Each band needs min, max, label, text, and color.
+     Bands must cover the full range from 0 to maxTotalScore with no gaps or
+     overlaps. Replace the placeholder text with your instrument's validated
+     cut-score descriptions.
+
+  D. ADD SUBSCALES
+     Populate SCORE_RULES.subscales[] with objects describing each subscale:
+       { name: 'Subscale Name', itemIds: [1, 3, 5], maxScore: 15 }
+     Set subscales: [] to hide the subscale section entirely.
+
+  E. ADD OR REMOVE PARTICIPANT FIELDS
+     The welcome form currently collects: name (required), age (required),
+     sex (optional), email (optional). To add a field, duplicate one of the
+     .form-group blocks in SCREEN 1 and add the corresponding read in
+     startQuestionnaire(). To remove a field, delete its HTML block and remove
+     the matching line in startQuestionnaire().
+
+  F. DISABLE SCORE DISPLAY (CLINICIAN-SCORED INSTRUMENTS)
+     ⚠️  IMPORTANT FOR CLINICAL USE:
+     Many validated screening instruments — including PHQ-9, GAD-7, PCL-5,
+     GAD-7, AUDIT, and various autism/ADHD screeners — are designed to be
+     interpreted by a clinician, NOT shown directly to participants. Displaying
+     a raw score or a band label like "High" without clinical context can cause
+     unnecessary distress or be misunderstood.
+
+     Before deploying, confirm with your clinical team whether participants
+     should see results at all.
+
+     To hide scores from participants:
+       • Remove or replace SCREEN 4 (the results screen) with a simple
+         "Thank you — your responses have been submitted" card.
+       • In SCREEN 3, replace both buttons with a single "Submit" button
+         that calls submitOnly() (add this function to the JS — it calls
+         clearState() and sendEmail(), then shows a thank-you screen).
+       • The scoring logic and email delivery continue to work unchanged —
+         the clinician receives the full report; the participant sees only a
+         confirmation message.
+     See the comment block above SCREEN 4 for exact instructions.
+
+  G. REPLACE EMAIL DELIVERY WITH A DATABASE
+     EmailJS is convenient for small deployments, but is not suitable for
+     high-volume use or strict data-governance contexts. To replace it:
+       • Remove the EmailJS <script> tag from the <head>.
+       • Replace sendEmail() with a fetch() POST to your own API endpoint,
+         or with any client-side SDK (Firebase, Supabase, Airtable, etc.).
+       • The templateParams object in sendEmail() shows all data fields available.
+     See the comment block above SECTION 10 (EMAIL DELIVERY) for details.
+
+  H. CHANGE THE COLOUR PALETTE
+     All colours are defined as CSS custom properties in :root {}.
+     Edit the hex values there to retheme the entire interface in one place.
+
+  I. CHANGE THE LANGUAGE / LOCALISE THE INTERFACE
+     All visible text is either set in QUIZ_CONFIG / QUESTIONS, or appears in
+     the HTML as static strings. Search for English strings in the HTML
+     (e.g. "Full name", "Begin questionnaire", "All done!") and replace them.
+
+  ──────────────────────────────────────────────────────────────────────────────
+  OPTIONAL FEATURES AT A GLANCE
+  ──────────────────────────────────────────────────────────────────────────────
+  Feature                   Keep when…                   Remove/disable when…
+  ─────────────────────────────────────────────────────────────────────────────
+  Results screen (SCREEN 4) Participants may see scores   Clinician-only scoring
+  Email delivery (EmailJS)  Clinician needs email report  Database or no storage
+  Participant form fields   Demographic data needed       Anonymous administration
+  Subscale scores           Instrument has factor struct. Single-domain or total only
+  Reverse scoring           Instrument has reverse items  All items same direction
+  Interpretation bands      Validated cut-scores exist    Raw scores only / clinician
+  ──────────────────────────────────────────────────────────────────────────────
+
+  DEPENDENCIES
+  ────────────
+  • EmailJS Browser SDK (CDN) — OPTIONAL. Remove the <script> tag if unused.
+  • No other external libraries, frameworks, or build tools.
+
+  BROWSER STORAGE
+  ───────────────
+  Progress is auto-saved to localStorage under STATE_KEY. This lets participants
+  resume if they close the tab accidentally. The saved state is wiped as soon
+  as results are shown, so a page refresh after completion returns to welcome.
+  If you deploy multiple instruments on the same domain, change STATE_KEY per
+  instrument to avoid state collisions.
+
+  HOSTING
+  ───────
+  Deploy as a single .html file on any static host. No server-side code is
+  required. Tested on: GitHub Pages, GoDaddy (static), Netlify, Vercel (static),
+  and local file system (file://).
+  ──────────────────────────────────────────────────────────────────────────────
+  -->
+
+  <!-- ── Page title: change to match your instrument ── -->
+  <title>Generic Questionnaire</title>
+
+  <!--
+    OPTIONAL DEPENDENCY: EmailJS Browser SDK
+    ─────────────────────────────────────────
+    EmailJS allows this client-side file to send score reports to a clinician's
+    inbox without any server-side code. It is the only external dependency.
+
+    TO DISABLE email delivery entirely:
+      1. Delete this <script> tag.
+      2. Set EMAILJS_CONFIG.publicKey to '' (empty string) in the JS section.
+      The app will still function; it will simply skip the email step.
+
+    TO REPLACE with a different delivery method:
+      Replace the sendEmail() function with a fetch() POST to your own API,
+      or use any client-side SDK (Firebase, Supabase, Airtable, etc.).
+      See SECTION 10 — EMAIL DELIVERY in the <script> block for full details.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+  <style>
+    /* ── Reset & base ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /*
+      COLOUR PALETTE
+      ─────────────
+      All colours are defined here as CSS custom properties in :root {}.
+      Edit the hex values to retheme the entire interface in one place.
+      No colours are hardcoded elsewhere in the stylesheet.
+    */
+    :root {
+      --primary:      #2D6A9F;   /* primary brand colour — buttons, links, accents */
+      --primary-dark: #1E4D73;
+      --primary-light:#EBF4FB;
+      --accent:       #27AE60;   /* confirmation / success green */
+      --accent-dark:  #1E8449;
+      --text-main:    #2C3E50;
+      --text-sub:     #5D6D7E;
+      --text-light:   #808B96;
+      --bg:           #F8FAFC;
+      --white:        #FFFFFF;
+      --border:       #D5DBDB;
+      --border-light: #EAF0F6;
+      --shadow-sm:    0 2px 8px rgba(45,106,159,.10);
+      --shadow-md:    0 4px 20px rgba(45,106,159,.15);
+      --radius:       12px;
+      --radius-sm:    8px;
+      --transition:   .25s ease;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                   'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Screens ──────────────────────────────────────── */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ── Container ───────────────────────────────────── */
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 20px 16px 60px;
+    }
+
+    /* ── Header bar ──────────────────────────────────── */
+    .header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border-light);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-sm);
+    }
+    .header-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    .header-progress-text {
+      font-size: .85rem;
+      color: var(--text-sub);
+    }
+
+    /* ── Progress bar ────────────────────────────────── */
+    .progress-bar-wrap {
+      background: var(--border-light);
+      height: 6px;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      height: 100%;
+      border-radius: 99px;
+      transition: width .4s ease;
+      width: 0%;
+    }
+
+    /* ── Card ────────────────────────────────────────── */
+    .card {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 32px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-light);
+    }
+
+    /* ── Welcome screen ──────────────────────────────── */
+    .welcome-hero {
+      text-align: center;
+      padding: 48px 24px 32px;
+    }
+    .welcome-icon {
+      font-size: 3.5rem;
+      margin-bottom: 16px;
+      display: block;
+    }
+    .welcome-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+    .welcome-sub {
+      font-size: 1rem;
+      color: var(--text-sub);
+      max-width: 480px;
+      margin: 0 auto 32px;
+    }
+    .info-chips {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+    .chip {
+      background: var(--primary-light);
+      color: var(--primary);
+      border-radius: 99px;
+      padding: 6px 16px;
+      font-size: .85rem;
+      font-weight: 500;
+    }
+
+    /* ── Form fields ─────────────────────────────────── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+
+    label {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    input, select {
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: .95rem;
+      color: var(--text-main);
+      background: var(--white);
+      transition: border-color var(--transition), box-shadow var(--transition);
+      outline: none;
+    }
+    input:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(45,106,159,.15);
+    }
+    input.error, select.error { border-color: #E74C3C; }
+    .field-error { color: #E74C3C; font-size: .82rem; margin-top: 2px; }
+
+    /* ── Buttons ─────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: var(--radius-sm);
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      border: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: var(--white);
+      box-shadow: 0 4px 12px rgba(45,106,159,.3);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(45,106,159,.4); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+    .btn-secondary {
+      background: var(--white);
+      color: var(--primary);
+      border: 1.5px solid var(--primary);
+    }
+    .btn-secondary:hover { background: var(--primary-light); }
+
+    .btn-success {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: var(--white);
+      box-shadow: 0 4px 12px rgba(39,174,96,.3);
+    }
+    .btn-success:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(39,174,96,.4); }
+
+    .btn-full { width: 100%; }
+
+    /* ── Question screen ─────────────────────────────── */
+    .question-number {
+      font-size: .8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .question-text {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text-main);
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+
+    /* ── Answer options ──────────────────────────────── */
+    .options-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    .option-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--white);
+      cursor: pointer;
+      text-align: left;
+      transition: all var(--transition);
+      font-size: .95rem;
+      color: var(--text-main);
+    }
+    .option-btn:hover { border-color: var(--primary); background: var(--primary-light); }
+    .option-btn.selected {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      font-weight: 500;
+    }
+    .option-dot {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+    }
+    .option-btn.selected .option-dot {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    .option-btn.selected .option-dot::after {
+      content: '';
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--white);
+    }
+
+    /* ── Navigation row ──────────────────────────────── */
+    .nav-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-row .btn { min-width: 120px; }
+
+    /* ── Intermediate screen ─────────────────────────── */
+    .intermediate-icon { font-size: 3rem; margin-bottom: 16px; }
+    .intermediate-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 12px;
+    }
+    .intermediate-text {
+      color: var(--text-sub);
+      margin-bottom: 28px;
+      line-height: 1.7;
+    }
+    .intermediate-choices {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ── Results screen ──────────────────────────────── */
+    .results-header { text-align: center; margin-bottom: 32px; }
+    .results-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 8px;
+    }
+    .results-sub { color: var(--text-sub); font-size: .95rem; }
+
+    .score-display {
+      text-align: center;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: var(--white);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+    .score-number {
+      font-size: 3.5rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .score-label { font-size: .9rem; opacity: .85; }
+
+    .interpretation-card {
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      border-left: 4px solid var(--primary);
+      background: var(--primary-light);
+    }
+    .interpretation-label {
+      font-size: .8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--primary);
+      margin-bottom: 6px;
+    }
+    .interpretation-text {
+      font-size: 1rem;
+      color: var(--text-main);
+      line-height: 1.6;
+    }
+
+    /* subscale table */
+    .subscale-grid {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .subscale-item {
+      background: var(--bg);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .subscale-name { font-weight: 600; font-size: .95rem; }
+    .subscale-score {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--primary);
+      white-space: nowrap;
+    }
+
+    /* disclaimer */
+    .disclaimer {
+      background: #FEF9E7;
+      border: 1px solid #F9E79F;
+      border-radius: var(--radius-sm);
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      font-size: .88rem;
+      color: #7D6608;
+      line-height: 1.6;
+    }
+
+    /* toast notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #2C3E50;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 99px;
+      font-size: .9rem;
+      font-weight: 500;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+      transition: transform .35s ease, opacity .35s ease;
+      opacity: 0;
+      z-index: 9999;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    /* ── Spinner ─────────────────────────────────────── */
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2.5px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive tweaks ───────────────────────────── */
+    @media (max-width: 520px) {
+      .card { padding: 22px 16px; }
+      .welcome-title { font-size: 1.45rem; }
+      .question-text { font-size: 1.05rem; }
+      .btn { padding: 13px 20px; font-size: .95rem; }
+      .nav-row .btn { min-width: 100px; }
+      .score-number { font-size: 2.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Toast notification ───────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SCREEN 1: WELCOME
+     ══════════════════════════════════════════════════════════════════════════
+     The first screen participants see. Displays instrument name, description,
+     info chips (question count and estimated time), the participant information
+     form, a clinical disclaimer, and the "Begin questionnaire" button.
+
+     OPTIONAL FEATURE: PARTICIPANT INFORMATION FORM
+     ────────────────────────────────────────────────
+     The form collects four fields: name (required), age (required), sex
+     (optional), and email (optional). These values are stored in
+     state.participant, auto-saved to localStorage, included in the email
+     report, and shown in the results screen header.
+
+     WHEN TO KEEP IT:
+       Whenever you need to identify the participant for record-keeping or
+       to link results to a patient file.
+
+     WHEN TO SIMPLIFY OR REMOVE IT:
+       • Anonymous research — remove name and email; keep only age/sex.
+       • Kiosk administration — remove all fields and bypass the form.
+       • If the clinician logs the patient separately — you may not need
+         the form at all.
+
+     HOW TO EDIT:
+       In the HTML below, add or delete .form-group blocks.
+       In the JS, update startQuestionnaire() to match.
+
+     NOTE ON PII:
+       Name and email are personally identifiable. Ensure your data handling
+       complies with applicable regulations (GDPR, HIPAA, LGPD, etc.) before
+       collecting this information.
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div class="screen active" id="screen-welcome">
+
+  <!-- Sticky header (hidden on welcome to keep it clean) -->
+
+  <div class="container">
+    <div class="card">
+      <div class="welcome-hero">
+        <!--
+          Change the icon emoji below to something fitting for your instrument.
+          It is purely decorative.
+        -->
+        <span class="welcome-icon">📋</span>
+
+        <!--
+          ── INSTRUMENT NAME ─────────────────────────────────────
+          Edit QUIZ_CONFIG.shortTitle for the header bar and
+          QUIZ_CONFIG.fullTitle for the welcome screen.
+        -->
+        <h1 class="welcome-title" id="welcome-title">Generic Questionnaire</h1>
+
+        <!--
+          ── WELCOME DESCRIPTION ──────────────────────────────────
+          Edit QUIZ_CONFIG.description below in the JS section.
+        -->
+        <p class="welcome-sub" id="welcome-description">
+          Please answer each statement honestly, choosing the option that
+          best describes your experience.
+        </p>
+
+        <!-- Info chips: question count and estimated time are injected by JS -->
+        <div class="info-chips">
+          <span class="chip" id="chip-questions">⬤ Questions</span>
+          <span class="chip" id="chip-time">⬤ Estimated time</span>
+          <span class="chip">📱 Any device</span>
+        </div>
+      </div>
+
+      <!--
+        PARTICIPANT INFORMATION FORM
+        ─────────────────────────────
+        Add fields by duplicating a .form-group block and reading the value in
+        startQuestionnaire(). Remove optional fields by deleting their block.
+        To make the questionnaire fully anonymous, remove all four blocks and
+        set state.participant = { name: 'Anonymous' } in startQuestionnaire().
+      -->
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="field-name">Full name <span style="color:#E74C3C">*</span></label>
+          <input type="text" id="field-name" placeholder="Your full name" autocomplete="name" />
+          <span class="field-error" id="err-name"></span>
+        </div>
+
+        <div class="form-group">
+          <label for="field-age">Age <span style="color:#E74C3C">*</span></label>
+          <input type="number" id="field-age" placeholder="e.g. 35" min="1" max="120" autocomplete="off" />
+          <span class="field-error" id="err-age"></span>
+        </div>
+
+        <div class="form-group">
+          <label for="field-sex">Sex</label>
+          <select id="field-sex">
+            <option value="">Prefer not to say</option>
+            <option value="Female">Female</option>
+            <option value="Male">Male</option>
+            <option value="Non-binary">Non-binary</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="field-email">Email (optional)</label>
+          <input type="email" id="field-email" placeholder="your@email.com" autocomplete="email" />
+        </div>
+      </div>
+
+      <!-- Disclaimer shown before starting -->
+      <div class="disclaimer">
+        ⚠️ <strong>Important:</strong> This questionnaire is a self-report tool and is not
+        a clinical diagnosis. Results should always be reviewed by a qualified professional.
+      </div>
+
+      <button class="btn btn-primary btn-full" onclick="startQuestionnaire()">
+        Begin questionnaire →
+      </button>
+    </div>
+  </div>
+</div><!-- /screen-welcome -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SCREEN 2: QUESTION
+     ══════════════════════════════════════════════════════════════════════════
+     Displays one question at a time. Content is injected by renderQuestion().
+     The sticky header shows the instrument name and "Question N of M".
+     The progress bar fills as the participant advances.
+     The Next button is disabled until an answer is selected.
+     The Back button returns to the previous question.
+     On the last question, Next becomes "Finish ✓" and advances to SCREEN 3.
+
+     This screen does not need to be edited for most adaptations.
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-question">
+
+  <!-- Sticky progress header -->
+  <div class="header">
+    <span class="header-title" id="header-instrument-name">Questionnaire</span>
+    <span class="header-progress-text" id="header-progress">Question 1 of N</span>
+  </div>
+
+  <!-- Progress bar (below header, full width) -->
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progress-fill"></div>
+  </div>
+
+  <div class="container">
+    <div class="card">
+      <div class="question-number" id="q-number">Question 1</div>
+      <div class="question-text" id="q-text">Question text goes here.</div>
+
+      <div class="options-list" id="options-container">
+        <!-- Answer buttons injected by renderQuestion() -->
+      </div>
+
+      <div class="nav-row">
+        <button class="btn btn-secondary" id="btn-back" onclick="goBack()">← Back</button>
+        <button class="btn btn-primary" id="btn-next" onclick="goNext()" disabled>Next →</button>
+      </div>
+    </div>
+  </div>
+</div><!-- /screen-question -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SCREEN 3: INTERMEDIATE
+     ══════════════════════════════════════════════════════════════════════════
+     Shown after the participant answers the last question, before revealing
+     results. Gives them a moment to choose what happens next.
+
+     The two buttons call:
+       • submitAndShowResults() — sends the email report AND shows SCREEN 4
+       • showResultsOnly()      — shows SCREEN 4 without sending an email
+
+     WHEN TO KEEP BOTH BUTTONS:
+       When participants have a choice about whether to share their results.
+
+     WHEN TO SIMPLIFY:
+       • Email always sent automatically: replace both with one "View results"
+         button calling submitAndShowResults().
+       • Scores NOT shown to participants: replace both with a single "Submit"
+         button calling submitOnly() → shows a "Thank you" screen instead.
+       • Email disabled: remove the "Send results and view report" button.
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-intermediate">
+  <div class="container" style="display:flex;align-items:center;min-height:100vh;">
+    <div class="card" style="width:100%;text-align:center;">
+      <div class="intermediate-icon">✅</div>
+      <h2 class="intermediate-title">All done!</h2>
+      <p class="intermediate-text">
+        You have answered all questions. Your responses have been recorded.<br/>
+        What would you like to do next?
+      </p>
+      <div class="intermediate-choices">
+        <button class="btn btn-success btn-full" onclick="submitAndShowResults()">
+          📧 Send results and view report
+        </button>
+        <button class="btn btn-secondary btn-full" onclick="showResultsOnly()">
+          📊 View results locally (no email)
+        </button>
+      </div>
+    </div>
+  </div>
+</div><!-- /screen-intermediate -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     SCREEN 4: RESULTS
+     ══════════════════════════════════════════════════════════════════════════
+     Shows the participant their total score, interpretation band, and
+     (optionally) subscale breakdown. All values are computed and injected
+     by renderResults().
+
+     ┌───────────────────────────────────────────────────────────────────────┐
+     │  ⚠️  IMPORTANT: SHOULD PARTICIPANTS SEE THEIR SCORES?                 │
+     │                                                                       │
+     │  Many validated screening instruments — PHQ-9, GAD-7, PCL-5,         │
+     │  AUDIT, RAADS-R, and others — are designed to be INTERPRETED BY A     │
+     │  CLINICIAN, not shown directly to participants. Displaying a raw       │
+     │  score or a label like "High" without clinical context can cause       │
+     │  unnecessary distress or be misunderstood.                             │
+     │                                                                       │
+     │  Before deploying, confirm with your clinical team whether             │
+     │  participants should see results at all.                               │
+     │                                                                       │
+     │  TO HIDE SCORES FROM PARTICIPANTS:                                     │
+     │    1. Remove this entire SCREEN 4 block (or replace with a simple      │
+     │       "Thank you — your responses have been submitted" card).           │
+     │    2. In SCREEN 3, replace both buttons with a single "Submit" button   │
+     │       that calls submitOnly() (add this function to the JS: it calls   │
+     │       clearState() and sendEmail(), then shows the thank-you screen).   │
+     │    3. The scoring logic and email delivery run in the background —      │
+     │       the clinician receives the full report; the participant only      │
+     │       sees a confirmation message.                                      │
+     │                                                                       │
+     │  Responses can always be emailed or stored without displaying scores.  │
+     └───────────────────────────────────────────────────────────────────────┘
+
+     OPTIONAL FEATURE: SUBSCALE SCORES
+     ────────────────────────────────────────────────────────────────────────
+     The subscale section is hidden by default and only appears if
+     SCORE_RULES.subscales[] contains at least one entry.
+     WHEN TO KEEP: instrument has a validated factor structure.
+     WHEN TO REMOVE: single-domain instruments, or to simplify the view.
+     HOW TO DISABLE: set SCORE_RULES.subscales to []. No HTML changes needed.
+
+     OPTIONAL FEATURE: INTERPRETATION BANDS
+     ────────────────────────────────────────────────────────────────────────
+     The coloured band card shows a label and text based on the total score.
+     WHEN TO KEEP: instrument has published, validated cut-scores.
+     WHEN TO REMOVE: no validated cut-scores exist, or clinician interprets.
+     HOW TO MODIFY: edit SCORE_RULES.bands[] in the JS section.
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-results">
+  <div class="container">
+
+    <div class="results-header">
+      <h2 class="results-title">Your Results</h2>
+      <p class="results-sub" id="results-patient-line">—</p>
+    </div>
+
+    <!-- Total score card -->
+    <div class="score-display">
+      <div class="score-number" id="total-score-display">0</div>
+      <div class="score-label" id="total-score-label">Total Score (max: 0)</div>
+    </div>
+
+    <!-- Score interpretation -->
+    <div class="interpretation-card" id="interpretation-card">
+      <div class="interpretation-label">Interpretation</div>
+      <div class="interpretation-text" id="interpretation-text">—</div>
+    </div>
+
+    <!--
+      OPTIONAL: SUBSCALE BREAKDOWN
+      Hidden by default (display:none). Shown automatically by renderResults()
+      if SCORE_RULES.subscales[] has at least one entry.
+      To disable: set subscales: [] in SCORE_RULES. No HTML changes required.
+    -->
+    <div id="subscale-section" style="display:none;">
+      <h3 style="font-size:1rem;font-weight:700;color:var(--text-sub);
+                 text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px;">
+        Subscale Scores
+      </h3>
+      <div class="subscale-grid" id="subscale-grid">
+        <!-- Injected by JS -->
+      </div>
+    </div>
+
+    <!-- Disclaimer -->
+    <div class="disclaimer">
+      ⚠️ <strong>Remember:</strong> This report is generated by a self-report questionnaire
+      and does not constitute a clinical diagnosis. Please share these results with your
+      healthcare professional for proper interpretation.
+    </div>
+
+    <button class="btn btn-secondary btn-full" onclick="restartQuestionnaire()">
+      ↺ Take the questionnaire again
+    </button>
+
+  </div>
+</div><!-- /screen-results -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+     ══════════════════════════════════════════════════════════════════════════
+
+     CODE ORGANISATION
+     ─────────────────
+     The script is divided into clearly numbered sections:
+
+       SECTION 1  QUIZ_CONFIG       — instrument metadata
+       SECTION 2  QUESTIONS         — the items array
+       SECTION 3  SCORE_RULES       — scoring (options, reverse items, bands, subscales)
+       SECTION 4  EMAILJS_CONFIG    — email delivery credentials (optional)
+       SECTION 5  APP STATE         — runtime state (do not edit)
+       SECTION 6  INITIALISATION    — runs once on page load (do not edit)
+       SECTION 7  NAVIGATION        — screen transitions and question rendering
+       SECTION 8  SCORING           — all score computation functions
+       SECTION 9  RESULTS           — results screen population
+       SECTION 10 EMAIL DELIVERY    — EmailJS integration (optional)
+       SECTION 11 UTILITIES         — helper functions
+
+     ── FOR A NEW INSTRUMENT, EDIT ONLY SECTIONS 1–4. ──
+     Everything from SECTION 5 onwards is generic infrastructure.
+     ══════════════════════════════════════════════════════════════════════════ -->
+<script>
+  /* ══════════════════════════════════════════════════════════════════════════
+     SECTION 1 — QUIZ_CONFIG
+     ══════════════════════════════════════════════════════════════════════════
+     Instrument-level metadata. Edit all values here.
+
+     shortTitle    Shown in the sticky header during the questionnaire.
+                   Keep it short (≤ 40 characters).
+
+     fullTitle     Shown as the main heading on the welcome screen.
+                   Also becomes the browser tab title.
+
+     description   Shown below the title on the welcome screen. Use this to
+                   give participants context about the questionnaire's purpose.
+
+     estimatedTime Shown in an info chip. Adjust proportionally:
+                   ~1 min per 10–12 items is typical for 4-point Likert scales.
+                   Example guidance: 7 items ≈ 3–5 min, 80 items ≈ 15–20 min.
+
+     icon          Emoji shown in the welcome hero area. Purely decorative.
+  */
+  const QUIZ_CONFIG = {
+    // Short name shown in the sticky header during the quiz
+    shortTitle: 'Generic Questionnaire',
+
+    // Full name shown on the welcome screen
+    fullTitle: 'Generic Questionnaire',
+
+    // Subtitle / description shown below the title on the welcome screen
+    description:
+      'Please answer each statement as honestly as possible. ' +
+      'Choose the option that best describes your experience, both now and in the past.',
+
+    // Estimated completion time shown as an info chip
+    estimatedTime: '~3–5 min',
+
+    // Welcome screen icon (any emoji)
+    icon: '📋',
+  };
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SECTION 2 — QUESTIONS
+     ══════════════════════════════════════════════════════════════════════════
+     The ordered list of items presented to the participant, one per screen.
+
+     Each item must have:
+       id    {number}  A unique integer. Used to look up reverse-scoring rules
+                       and subscale membership. Do NOT change id values after
+                       you start collecting data — they key into stored answers.
+       text  {string}  The statement shown to the participant.
+
+     Items are displayed in the order they appear in this array.
+
+     ADDING ITEMS:   Append a new object with a unique id.
+     REMOVING ITEMS: Delete the object AND remove its id from
+                     reverseScoredItems and any subscale.itemIds arrays.
+     ITEM COUNT:     Update QUIZ_CONFIG.estimatedTime when you change count.
+  */
+  const QUESTIONS = [
+    { id: 1,  text: 'I find it easy to make friends and maintain social relationships.' },
+    { id: 2,  text: 'Loud or unexpected noises make me feel uncomfortable or overwhelmed.' },
+    { id: 3,  text: 'I enjoy large social gatherings and feel energised by them.' },          // ← REVERSE SCORED (see SCORE_RULES.reverseScoredItems)
+    { id: 4,  text: 'I prefer to follow a predictable daily routine rather than being spontaneous.' },
+    { id: 5,  text: 'I have no difficulty understanding jokes or sarcasm in conversation.' }, // ← REVERSE SCORED
+    { id: 6,  text: 'Certain textures, smells, or sounds bother me much more than they seem to bother others.' },
+    { id: 7,  text: 'I often replay past conversations in my mind, wondering if I said the right things.' },
+  ];
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SECTION 3 — SCORE_RULES
+     ══════════════════════════════════════════════════════════════════════════
+     All scoring configuration in one object. This section defines:
+       • The response scale shown to participants    (answerOptions)
+       • Which items are scored in reverse           (reverseScoredItems)
+       • The maximum possible total score            (maxTotalScore)
+       • How scores map to interpretive labels       (bands)
+       • Subscale groupings for detailed breakdowns  (subscales)
+  */
+  const SCORE_RULES = {
+
+    /* ── answerOptions ───────────────────────────────────────────────────────
+       The response options shown to the participant for every question.
+
+       Each option has:
+         label  {string}  The text shown on the button.
+         value  {number}  The RAW score for a DIRECT (non-reversed) item.
+                          For REVERSE items the app automatically computes:
+                            scoredValue = maxItemValue − rawValue
+
+       Options are displayed in the order they appear in this array.
+
+       COMMON SCALES:
+         4-point (0–3):  Never true / Rarely true / Often true / Always true
+         5-point (0–4):  Strongly disagree / Disagree / Neutral / Agree / Strongly agree
+         3-point (0–2):  Not at all / Somewhat / Very much
+         Binary  (0–1):  No / Yes
+
+       After changing options, update maxItemValue below to match the highest value.
+    */
+    answerOptions: [
+      { label: 'Never true',  value: 0 },
+      { label: 'Rarely true', value: 1 },
+      { label: 'Often true',  value: 2 },
+      { label: 'Always true', value: 3 },
+    ],
+
+    /* ── maxItemValue ──────────────────────────────────────────────────────────
+       The highest value in answerOptions. Used for reverse scoring:
+         reversedScore = maxItemValue − rawValue
+       Must always match the highest `value` in the answerOptions array above.
+       Examples: 4-point scale → 3,  5-point scale → 4,  binary → 1.
+    */
+    maxItemValue: 3,
+
+    /* ── reverseScoredItems ─────────────────────────────────────────────────
+       OPTIONAL FEATURE: REVERSE SCORING
+       ────────────────────────────────────────────────────────────────────────
+       Lists the `id` values of items that should be scored in reverse.
+
+       PURPOSE:
+         Some questionnaires include "positively worded" items — statements
+         where agreement indicates ABSENCE of the trait being measured.
+         Example: if the instrument measures social difficulty, "I enjoy large
+         social gatherings" is positively worded — agreement should contribute
+         a LOW scored value. Reverse scoring corrects for this.
+
+       HOW IT WORKS (automatic):
+         For any item whose id appears in this array:
+           scoredValue = maxItemValue − rawValue
+         For all other items (direct):
+           scoredValue = rawValue
+
+         Example with maxItemValue = 3:
+           Direct  item, selects "Often true" (raw=2) → scored = 2
+           Reverse item, selects "Often true" (raw=2) → scored = 3−2 = 1
+           Reverse item, selects "Never true" (raw=0) → scored = 3−0 = 3
+
+       WHEN TO USE:
+         Use exactly as specified in the instrument's published scoring key.
+         Do not invent reverse items.
+
+       TO DISABLE:
+         Set to an empty array [].
+    */
+    reverseScoredItems: [3, 5],
+
+    /* ── maxTotalScore ──────────────────────────────────────────────────────
+       The highest possible total score across all items.
+       DEFAULT (null): computed automatically as QUESTIONS.length × maxItemValue.
+       OVERRIDE: set an explicit number if your instrument uses a custom total
+       (e.g. some items are excluded, or a non-standard formula is used).
+    */
+    maxTotalScore: null, // null = auto (QUESTIONS.length × maxItemValue)
+
+    /* ── bands (interpretation) ─────────────────────────────────────────────
+       OPTIONAL FEATURE: INTERPRETATION BANDS
+       ────────────────────────────────────────────────────────────────────────
+       Maps total score ranges to interpretive labels and descriptive text.
+
+       Each band requires:
+         min    {number}  Inclusive lower bound.
+         max    {number}  Inclusive upper bound.
+         label  {string}  Short label (e.g. "Low", "High"). Used in email reports.
+         text   {string}  Descriptive sentence shown to the participant (or
+                          clinician) explaining what the score range means.
+         color  {string}  CSS hex colour for the left border and tint of the
+                          interpretation card on the results screen.
+
+       RULES:
+         • Bands must cover the full range from 0 to maxTotalScore with no gaps.
+         • The last band acts as a fallback for any out-of-range value.
+
+       WHEN TO USE:
+         Replace placeholders with your instrument's published cut-scores.
+         Do not invent thresholds without published validation evidence.
+
+       WHEN TO REMOVE:
+         If no validated cut-scores exist, remove the .interpretation-card
+         block from SCREEN 4 and the band-related code in renderResults().
+    */
+    bands: [
+      {
+        min: 0, max: 7,
+        label: 'Low',
+        text:  'Your score is in the low range. Few of the statements appear to reflect your experience.',
+        color: '#27AE60',
+      },
+      {
+        min: 8, max: 14,
+        label: 'Moderate',
+        text:  'Your score is in the moderate range. Some of the statements appear to reflect your experience.',
+        color: '#F39C12',
+      },
+      {
+        min: 15, max: 21,
+        label: 'High',
+        text:  'Your score is in the high range. Many of the statements appear to strongly reflect your experience.',
+        color: '#E74C3C',
+      },
+    ],
+
+    /* ── subscales ──────────────────────────────────────────────────────────
+       OPTIONAL FEATURE: SUBSCALE SCORES
+       ────────────────────────────────────────────────────────────────────────
+       Groups items into named subscales for a more detailed score breakdown.
+       Subscale scores are shown on the results screen and in the email report.
+
+       Each subscale requires:
+         name      {string}    Display name shown on results screen.
+         itemIds   {number[]}  Question `id` values in this subscale.
+                               Reverse-scored items are handled automatically.
+         maxScore  {number}    Maximum score for this subscale
+                               (itemIds.length × maxItemValue).
+
+       WHEN TO USE:
+         Only when the instrument has a published, validated factor structure
+         and subscale scores have established clinical meaning.
+
+       TO DISABLE:
+         Set to an empty array: subscales: []
+         The subscale section on the results screen will not render.
+         No HTML changes required.
+    */
+    subscales: [
+      { name: 'Dimension A', itemIds: [1, 2, 4],    maxScore: 9 },
+      { name: 'Dimension B', itemIds: [3, 5, 6, 7], maxScore: 12 },
+    ],
+  };
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SECTION 4 — EMAILJS_CONFIG
+     ══════════════════════════════════════════════════════════════════════════
+
+     OPTIONAL FEATURE: EMAIL DELIVERY VIA EMAILJS
+     ──────────────────────────────────────────────────────────────────────────
+     EmailJS sends score reports to a clinician's inbox without server-side
+     code. It is the default delivery mechanism and works well for small
+     deployments (individual practices, research pilots with low volume).
+
+     WHEN TO USE EMAILJS:
+       • Single clinician or small team; no existing patient database.
+       • Fast setup with no backend infrastructure.
+       • Static-host deployment (GoDaddy, GitHub Pages, Netlify, etc.).
+       Note: EmailJS free tier supports ~200 emails/month.
+
+     WHEN TO REPLACE EMAILJS:
+       • High-volume deployments.
+       • HIPAA / GDPR / LGPD contexts — confirm EmailJS's data-processing
+         agreements before use in regulated clinical settings.
+       • Organisations with an existing database — replace sendEmail() with
+         a fetch() POST to your endpoint or a client-side SDK.
+
+     TO DISABLE EMAIL DELIVERY ENTIRELY:
+       Leave publicKey as 'YOUR_PUBLIC_KEY'. The guard in sendEmail() will
+       detect the placeholder and skip delivery silently.
+
+     SETUP STEPS:
+       1. Create a free account at https://www.emailjs.com/
+       2. Add an Email Service (Gmail, Outlook, custom SMTP, etc.).
+       3. Create an Email Template using the variable names listed below
+          (wrapped in double curly braces, e.g. {{patient_name}}).
+       4. Copy your Public Key, Service ID, and Template ID below.
+
+     TEMPLATE VARIABLES (use these in your EmailJS template):
+       {{patient_name}}     Participant's full name
+       {{patient_email}}    Participant's email (may be empty string)
+       {{patient_age}}      Participant's age
+       {{patient_sex}}      Participant's sex (may be empty string)
+       {{date}}             Date and time of completion
+       {{total_score}}      Score string, e.g. "14 / 21"
+       {{score_numeric}}    Numeric score only (useful for sorting / filtering)
+       {{interpretation}}   Band label, e.g. "Moderate"
+       {{score_band_text}}  Full interpretation text from the matching band
+       {{subscale_summary}} Plain-text subscale breakdown, one per line
+                            (value is "N/A" if subscales[] is empty)
+       {{to_email}}         The recipient email address (recipientEmail below)
+
+     NOTE ON DATA PRIVACY:
+       templateParams includes name, age, sex, and email — personally
+       identifiable information. Ensure compliance with applicable regulations
+       (GDPR, HIPAA, LGPD, etc.) before deploying in a clinical setting.
+  */
+  const EMAILJS_CONFIG = {
+    publicKey:  'YOUR_PUBLIC_KEY',   // ← replace
+    serviceId:  'YOUR_SERVICE_ID',   // ← replace
+    templateId: 'YOUR_TEMPLATE_ID',  // ← replace
+
+    // The email address that will RECEIVE the results report
+    recipientEmail: 'clinician@example.com', // ← replace
+  };
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SECTION 5 — APP STATE
+     ══════════════════════════════════════════════════════════════════════════
+     Runtime state object. Do not edit unless adding new features.
+
+     state.currentIndex   0-based index into the QUESTIONS array.
+     state.answers        { questionId: rawValue } — raw (unscored) answer for
+                          each item as selected by the participant.
+     state.participant    { name, age, sex, email } — from the welcome form.
+
+     STATE_KEY   The localStorage key used to auto-save and restore progress.
+                 Change this string if you deploy multiple instruments on the
+                 same domain to avoid state collisions between them.
+  */
+  const STATE_KEY = 'quiz_progress_v1'; // localStorage key
+
+  let state = {
+    currentIndex: 0,     // 0-based index into QUESTIONS array
+    answers: {},         // { questionId: rawValue }
+    participant: {},     // { name, age, sex, email }
+  };
+
+  /* ── Derive computed constants ─────────────────────────── */
+  const MAX_TOTAL = SCORE_RULES.maxTotalScore !== null
+    ? SCORE_RULES.maxTotalScore
+    : QUESTIONS.length * SCORE_RULES.maxItemValue;
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SECTION 6 — INITIALISATION
+     ══════════════════════════════════════════════════════════════════════════
+     Runs once on page load. Populates the welcome screen from QUIZ_CONFIG,
+     restores any saved progress from localStorage, and initialises EmailJS.
+     Do not edit unless you are adding new features.
+  */
+  (function init() {
+    // Populate welcome screen from config
+    document.title = QUIZ_CONFIG.fullTitle;
+    document.getElementById('welcome-title').textContent = QUIZ_CONFIG.fullTitle;
+    document.getElementById('welcome-description').textContent = QUIZ_CONFIG.description;
+    document.getElementById('chip-questions').textContent =
+      `📝 ${QUESTIONS.length} questions`;
+    document.getElementById('chip-time').textContent =
+      `⏱ ${QUIZ_CONFIG.estimatedTime}`;
+    document.getElementById('header-instrument-name').textContent =
+      QUIZ_CONFIG.shortTitle;
+
+    // Restore saved progress (auto-save)
+    const saved = localStorage.getItem(STATE_KEY);
+    if (saved) {
+      try { state = JSON.parse(saved); } catch (_) { /* ignore */ }
+    }
+
+    // Initialise EmailJS
+    if (EMAILJS_CONFIG.publicKey && EMAILJS_CONFIG.publicKey !== 'YOUR_PUBLIC_KEY') {
+      emailjs.init({ publicKey: EMAILJS_CONFIG.publicKey });
+    }
+  })();
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SECTION 7 — NAVIGATION
+     ══════════════════════════════════════════════════════════════════════════
+     Controls transitions between screens and renders each question.
+     Do not edit unless adding new features.
+  */
+
+  /**
+   * Validates the welcome form and starts the questionnaire.
+   * Called by the "Begin questionnaire" button on SCREEN 1.
+   *
+   * Validation: name (required, non-empty) and age (required, 1–120).
+   * Sex and email are optional and always pass.
+   *
+   * To add a required field: add a validation block here following the
+   * name/age pattern, and add the field's HTML in SCREEN 1.
+   */
+  function startQuestionnaire() {
+    const name  = document.getElementById('field-name').value.trim();
+    const age   = document.getElementById('field-age').value.trim();
+    const sex   = document.getElementById('field-sex').value;
+    const email = document.getElementById('field-email').value.trim();
+    let ok = true;
+
+    document.getElementById('err-name').textContent = '';
+    document.getElementById('err-age').textContent  = '';
+    document.getElementById('field-name').classList.remove('error');
+    document.getElementById('field-age').classList.remove('error');
+
+    if (!name) {
+      document.getElementById('err-name').textContent = 'Please enter your full name.';
+      document.getElementById('field-name').classList.add('error');
+      ok = false;
+    }
+    if (!age || +age < 1 || +age > 120) {
+      document.getElementById('err-age').textContent = 'Please enter a valid age.';
+      document.getElementById('field-age').classList.add('error');
+      ok = false;
+    }
+    if (!ok) return;
+
+    state.participant = { name, age: +age, sex, email };
+    state.currentIndex = 0;
+    state.answers = {};
+    saveState();
+    showScreen('screen-question');
+    renderQuestion();
+  }
+
+  /**
+   * Renders the question at state.currentIndex onto SCREEN 2.
+   * Updates: question text, answer buttons, progress bar, navigation buttons.
+   * If the participant navigated back, the previously selected answer is
+   * pre-highlighted.
+   */
+  function renderQuestion() {
+    const q      = QUESTIONS[state.currentIndex];
+    const total  = QUESTIONS.length;
+    const idx    = state.currentIndex;
+    const pct    = Math.round((idx / total) * 100);
+
+    document.getElementById('q-number').textContent =
+      `Question ${idx + 1} of ${total}`;
+    document.getElementById('q-text').textContent = q.text;
+    document.getElementById('header-progress').textContent =
+      `Question ${idx + 1} of ${total}`;
+    document.getElementById('progress-fill').style.width = pct + '%';
+
+    // Back button: disable on first question
+    const btnBack = document.getElementById('btn-back');
+    btnBack.disabled = idx === 0;
+
+    // Next / Finish label
+    const btnNext = document.getElementById('btn-next');
+    btnNext.textContent = idx === total - 1 ? 'Finish ✓' : 'Next →';
+
+    // Saved answer (if navigating back)
+    const savedValue = state.answers[q.id];
+    const hasAnswer  = savedValue !== undefined;
+    btnNext.disabled = !hasAnswer;
+
+    // Build answer buttons
+    const container = document.getElementById('options-container');
+    container.innerHTML = '';
+
+    SCORE_RULES.answerOptions.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'option-btn' + (hasAnswer && savedValue === opt.value ? ' selected' : '');
+      btn.innerHTML = `<span class="option-dot"></span><span>${opt.label}</span>`;
+      btn.addEventListener('click', () => selectAnswer(q.id, opt.value));
+      container.appendChild(btn);
+    });
+  }
+
+  /**
+   * Records the participant's raw answer for the current question.
+   * The raw value is stored unchanged; reverse scoring is applied at
+   * compute time (in scoredValue()), not at storage time.
+   * Enables the Next button once any answer is selected.
+   */
+  function selectAnswer(questionId, value) {
+    state.answers[questionId] = value;
+    saveState();
+
+    // Update button appearances
+    document.querySelectorAll('.option-btn').forEach((btn, i) => {
+      btn.classList.toggle('selected', SCORE_RULES.answerOptions[i].value === value);
+    });
+    document.getElementById('btn-next').disabled = false;
+  }
+
+  function goNext() {
+    if (state.currentIndex < QUESTIONS.length - 1) {
+      state.currentIndex++;
+      saveState();
+      renderQuestion();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // All questions answered — show intermediate screen
+      showScreen('screen-intermediate');
+    }
+  }
+
+  function goBack() {
+    if (state.currentIndex > 0) {
+      state.currentIndex--;
+      saveState();
+      renderQuestion();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SECTION 8 — SCORING
+     ══════════════════════════════════════════════════════════════════════════
+     Pure functions — no DOM access. Do not edit unless changing scoring logic.
+
+     All answers are stored as RAW values (the `value` from answerOptions).
+     Scored values are computed on the fly when results are needed.
+
+     WHY SCORE AT COMPUTE TIME (NOT STORAGE TIME)?
+       Storing raw values keeps the data neutral. If you later discover and
+       correct a reverse-coding error, you can recompute without re-collecting.
+  */
+
+  /**
+   * Compute the scored value for a single item.
+   *
+   * DIRECT items:   scoredValue = rawValue
+   * REVERSE items:  scoredValue = maxItemValue − rawValue
+   *
+   * Example (maxItemValue = 3):
+   *   Direct  item, raw = 2  →  scored = 2
+   *   Reverse item, raw = 2  →  scored = 3 − 2 = 1
+   */
+  function scoredValue(questionId, rawValue) {
+    const isReverse = SCORE_RULES.reverseScoredItems.includes(questionId);
+    return isReverse
+      ? SCORE_RULES.maxItemValue - rawValue
+      : rawValue;
+  }
+
+  /** Compute total score across all answered items. */
+  function computeTotalScore() {
+    return QUESTIONS.reduce((sum, q) => {
+      const raw = state.answers[q.id];
+      return raw !== undefined ? sum + scoredValue(q.id, raw) : sum;
+    }, 0);
+  }
+
+  /** Compute a single subscale score. */
+  function computeSubscaleScore(subscale) {
+    return subscale.itemIds.reduce((sum, id) => {
+      const raw = state.answers[id];
+      return raw !== undefined ? sum + scoredValue(id, raw) : sum;
+    }, 0);
+  }
+
+  /** Find the score band for a given total score. */
+  function getBand(total) {
+    return SCORE_RULES.bands.find(b => total >= b.min && total <= b.max)
+      || SCORE_RULES.bands[SCORE_RULES.bands.length - 1];
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SECTION 9 — RESULTS
+     ══════════════════════════════════════════════════════════════════════════
+     Populates SCREEN 4 with computed scores and transitions to it.
+     Do not edit unless you are modifying the results layout.
+  */
+
+  /** Show results without sending email. */
+  function showResultsOnly() {
+    clearState(); // wipe progress so refresh returns to welcome
+    renderResults();
+    showScreen('screen-results');
+  }
+
+  /** Send results by email, then show results screen. */
+  async function submitAndShowResults() {
+    clearState();
+    renderResults();
+    showScreen('screen-results');
+    await sendEmail();
+  }
+
+  /** Populate the results screen with computed scores. */
+  function renderResults() {
+    const total = computeTotalScore();
+    const band  = getBand(total);
+    const p     = state.participant;
+    const now   = new Date().toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+
+    // Patient line
+    document.getElementById('results-patient-line').textContent =
+      `${p.name} · Age ${p.age}${p.sex ? ' · ' + p.sex : ''} · ${now}`;
+
+    // Score display
+    document.getElementById('total-score-display').textContent = total;
+    document.getElementById('total-score-label').textContent =
+      `Total Score (max: ${MAX_TOTAL})`;
+
+    // Interpretation band
+    const card = document.getElementById('interpretation-card');
+    card.style.borderLeftColor = band.color;
+    card.style.background = band.color + '18'; // low-opacity tint
+    document.getElementById('interpretation-text').textContent = band.text;
+
+    // Subscales
+    const subscales = SCORE_RULES.subscales || [];
+    if (subscales.length > 0) {
+      const section = document.getElementById('subscale-section');
+      const grid    = document.getElementById('subscale-grid');
+      section.style.display = 'block';
+      grid.innerHTML = subscales.map(sub => {
+        const s = computeSubscaleScore(sub);
+        return `
+          <div class="subscale-item">
+            <span class="subscale-name">${sub.name}</span>
+            <span class="subscale-score">${s} / ${sub.maxScore}</span>
+          </div>`;
+      }).join('');
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SECTION 10 — EMAIL DELIVERY
+     ══════════════════════════════════════════════════════════════════════════
+
+     OPTIONAL FEATURE: EMAIL DELIVERY VIA EMAILJS
+     ──────────────────────────────────────────────────────────────────────────
+     Sends a score report to the clinician's email. Safe to call unconditionally
+     — silently skips if publicKey is still the placeholder 'YOUR_PUBLIC_KEY'.
+
+     TO REPLACE EMAILJS WITH A CUSTOM API ENDPOINT:
+       Replace the emailjs.send() call with:
+         const response = await fetch('https://your-api.example.com/results', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify(templateParams),
+         });
+         if (!response.ok) throw new Error('Server error');
+
+     TO REPLACE WITH A DATABASE SDK (e.g. Firebase Firestore):
+         await addDoc(collection(db, 'results'), templateParams);
+
+     TO DISABLE:
+       Set EMAILJS_CONFIG.publicKey to '' or remove the sendEmail() call
+       from submitAndShowResults().
+  */
+
+  async function sendEmail() {
+    if (!EMAILJS_CONFIG.publicKey || EMAILJS_CONFIG.publicKey === 'YOUR_PUBLIC_KEY') {
+      console.warn('[Template] EmailJS not configured — skipping email delivery.');
+      return;
+    }
+
+    const total = computeTotalScore();
+    const band  = getBand(total);
+    const p     = state.participant;
+    const now   = new Date().toLocaleString('en-US');
+
+    // Build subscale summary text
+    const subscales = SCORE_RULES.subscales || [];
+    const subscaleSummary = subscales.length > 0
+      ? subscales.map(sub => {
+          const s = computeSubscaleScore(sub);
+          return `${sub.name}: ${s}/${sub.maxScore}`;
+        }).join('\n')
+      : 'N/A';
+
+    const templateParams = {
+      /* ── participant fields ── */
+      patient_name:     p.name,
+      patient_email:    p.email || 'Not provided',
+      patient_age:      p.age,
+      patient_sex:      p.sex  || 'Not provided',
+      /* ── scores ── */
+      date:             now,
+      total_score:      `${total} / ${MAX_TOTAL}`,
+      score_numeric:    total,
+      interpretation:   band.label,
+      score_band_text:  band.text,
+      subscale_summary: subscaleSummary,
+      /* ── recipient ── */
+      to_email:         EMAILJS_CONFIG.recipientEmail,
+    };
+
+    try {
+      await emailjs.send(
+        EMAILJS_CONFIG.serviceId,
+        EMAILJS_CONFIG.templateId,
+        templateParams,
+      );
+      showToast('✅ Results sent successfully!');
+    } catch (err) {
+      console.error('[EmailJS]', err);
+      showToast('⚠️ Could not send email. Results are displayed below.');
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SECTION 11 — UTILITIES
+     ══════════════════════════════════════════════════════════════════════════
+     Helper functions used throughout the app. Do not edit.
+  */
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  function saveState() {
+    localStorage.setItem(STATE_KEY, JSON.stringify(state));
+  }
+
+  function clearState() {
+    localStorage.removeItem(STATE_KEY);
+  }
+
+  function restartQuestionnaire() {
+    clearState();
+    state = { currentIndex: 0, answers: {}, participant: {} };
+    showScreen('screen-welcome');
+    // Reset form fields
+    ['field-name','field-age','field-sex','field-email'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+  }
+
+  let toastTimer;
+  function showToast(message) {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 4000);
+  }
+</script>
+</body>
+</html>
