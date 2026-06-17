@@ -1,17 +1,12 @@
 # Single-File Questionnaire Template
-A single-file HTML template for delivering self-report questionnaires online. Supports direct and reverse scoring, subscales, interpretation bands, and optional email delivery via EmailJS — no server or build step required. Designed for clinicians and researchers who need to deploy a validated instrument quickly on any static host.
-
-## Preview
-
-![Questionnaire Template](screenshot.png)
-
-# Single-File Questionnaire Template
 
 A zero-dependency, single-HTML-file framework for delivering self-report questionnaires in clinical or research settings. Drop it on any static host and it works — no server, no build step, no package manager.
 
 Built for psychologists, researchers, and developers who need to deploy a validated instrument quickly without a backend.
 
----
+## Preview
+
+![Questionnaire Template](screenshot.png)
 
 ## Features
 
